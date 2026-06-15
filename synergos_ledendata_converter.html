@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Synergos – Ledendata Updater</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--pur:#6B2FA0;--pur-dark:#4A1F70;--pur-light:#9B59D0;--pur-faint:#f3eaff;--teal:#00BFA5;--teal-dark:#009688;--text:#1a1030;--text-muted:#6b5a80;--green:#27ae60;--green-light:#d4f0e2;--red:#e74c3c;--red-light:#fde8e6;--border:#e0d8f0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f5f3fa;min-height:100vh;padding:24px 16px}
+.wrap{max-width:660px;margin:0 auto}
+.hdr{background:linear-gradient(135deg,var(--pur-dark),var(--pur) 60%,var(--pur-light));border-radius:20px;padding:24px 28px;margin-bottom:24px;position:relative;overflow:hidden}
+.hdr::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--teal)}
+.hdr h1{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px}
+.hdr p{font-size:13px;color:rgba(255,255,255,0.8)}
+.stap{background:#fff;border:2px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:16px}
+.stap-titel{display:flex;align-items:center;font-size:15px;font-weight:800;color:var(--text);margin-bottom:14px}
+.stap-nr{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--pur);color:#fff;border-radius:50%;font-size:13px;font-weight:800;margin-right:10px;flex-shrink:0}
+.stap-nr.done{background:var(--green)}
+.upload-zone{border:2.5px dashed var(--pur-light);border-radius:14px;padding:28px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--pur-faint);position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--pur);background:#ece0ff}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:32px;margin-bottom:8px}
+.upload-zone h3{font-size:14px;font-weight:700;color:var(--pur-dark);margin-bottom:4px}
+.upload-zone p{font-size:12px;color:var(--text-muted)}
+.status{margin-top:12px;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;display:none}
+.status.ok{background:var(--green-light);border:2px solid var(--green);color:var(--green);display:flex;align-items:center;gap:8px}
+.status.fout{background:var(--red-light);border:2px solid var(--red);color:var(--red);display:flex;align-items:center;gap:8px}
+.download-btn{width:100%;background:linear-gradient(135deg,var(--teal-dark),var(--teal));color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 16px rgba(0,191,165,0.35);transition:all 0.2s;opacity:0.4;pointer-events:none}
+.download-btn.actief{opacity:1;pointer-events:auto}
+.download-btn.actief:hover{transform:translateY(-1px)}
+.preview-info{background:var(--pur-faint);border:2px solid var(--pur-light);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--pur-dark);margin-top:12px;display:none}
+.preview-info.zichtbaar{display:block}
+.stippel{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pill{background:var(--pur);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>&#9881; Synergos Ledendata Updater</h1>
+    <p>Upload je Excel en de app — je krijgt direct een bijgewerkte app terug</p>
+  </div>
+
+  <div class="stap">
+    <div class="stap-titel"><span class="stap-nr" id="nr1">1</span>Upload je Excel-export uit All United</div>
+    <div class="upload-zone" id="zone-excel">
+      <input type="file" id="bestand-excel" accept=".xls,.xlsx" onchange="laadExcel(this)">
+      <div class="upload-icon">&#128196;</div>
+      <h3>Klik hier of sleep je .xls of .xlsx bestand</h3>
+      <p>"Deelnemers per les incl. geb datum" export</p>
+    </div>
+    <div class="status" id="status-excel"></div>
+    <div class="preview-info" id="preview-excel"></div>
+  </div>
+
+  <div class="stap">
+    <div class="stap-titel"><span class="stap-nr" id="nr2">2</span>Upload de app</div>
+    <div class="upload-zone" id="zone-html">
+      <input type="file" id="bestand-html" accept=".html" onchange="laadHTML(this)">
+      <div class="upload-icon">&#128196;</div>
+      <h3>Klik hier of sleep <code>synergos_presentielijst.html</code></h3>
+      <p>De presentielijst app die je wilt bijwerken</p>
+    </div>
+    <div class="status" id="status-html"></div>
+  </div>
+
+  <div class="stap">
+    <div class="stap-titel"><span class="stap-nr" id="nr3">3</span>Download de bijgewerkte app</div>
+    <button class="download-btn" id="download-btn" onclick="download()">
+      &#11015; Download bijgewerkte app
+    </button>
+    <p id="download-hint" style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center">
+      Upload eerst je Excel en de app hierboven
+    </p>
+  </div>
+</div>
+
+<script>
+var ledenJSON = null;
+var htmlInhoud = null;
+
+function laadExcel(input) {
+  var bestand = input.files[0];
+  if (!bestand) return;
+  var statusEl = document.getElementById('status-excel');
+  var previewEl = document.getElementById('preview-excel');
+  statusEl.className = 'status';
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array', cellDates:true});
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, dateNF:'yyyy-mm-dd'});
+
+      var leden = [];
+      var huidigeLes = '';  // ← DIT IS DE FIX: lesscode onthouden
+
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r || r.length < 3) continue;
+
+        var lesKolom   = (r[1] || '').toString().trim();
+        var nr         = (r[2] || '').toString().trim();
+        var voornaam   = (r[3] || '').toString().trim();
+        var tussen     = (r[4] || '').toString().trim();
+        var achternaam = (r[5] || '').toString().trim();
+        var geslacht   = (r[6] || '').toString().trim().toUpperCase();
+        var tel        = (r[7] || '').toString().trim();
+        var mob        = (r[8] || '').toString().trim();
+        var geb        = (r[9] || '').toString().trim();
+        var leeftijd   = parseInt(r[10]) || '';
+
+        // Als kolom B een nieuwe lescode heeft, onthoud die
+        // Een lescode is kort (2-6 tekens) en bevat geen spaties
+        if (lesKolom && lesKolom.length <= 8 && lesKolom.indexOf(' ') === -1) {
+          huidigeLes = lesKolom;
+        }
+
+        // Sla rijen over zonder relatienummer (lege rijen of sectiekoppen)
+        if (!nr || !voornaam || !achternaam) continue;
+
+        // Sla rijen over als we nog geen lescode hebben
+        if (!huidigeLes) continue;
+
+        var naam = voornaam + (tussen ? ' ' + tussen : '') + ' ' + achternaam;
+        if (geslacht !== 'M' && geslacht !== 'F') geslacht = 'F';
+
+        leden.push({
+          nr: nr,
+          naam: naam,
+          geb: geb,
+          leeftijd: leeftijd,
+          geslacht: geslacht,
+          tel: tel,
+          mob: mob,
+          les: huidigeLes
+        });
+      }
+
+      if (leden.length === 0) {
+        statusEl.innerHTML = '&#10007; Geen ledendata gevonden. Juiste bestand?';
+        statusEl.className = 'status fout';
+        return;
+      }
+
+      ledenJSON = JSON.stringify(leden);
+
+      // Tel leden per les
+      var lessen = {};
+      leden.forEach(function(l) { lessen[l.les] = (lessen[l.les] || 0) + 1; });
+      var lesNamen = Object.keys(lessen).sort();
+
+      statusEl.innerHTML = '&#10003; ' + leden.length + ' leden geladen uit ' + lesNamen.length + ' lessen';
+      statusEl.className = 'status ok';
+      document.getElementById('nr1').textContent = '\u2713';
+      document.getElementById('nr1').className = 'stap-nr done';
+
+      previewEl.innerHTML = '<strong>Gevonden lessen:</strong><div class="stippel">'
+        + lesNamen.map(function(l) {
+            return '<span class="pill">' + l + ' (' + lessen[l] + ')</span>';
+          }).join('')
+        + '</div>';
+      previewEl.className = 'preview-info zichtbaar';
+
+      checkKlaar();
+    } catch(err) {
+      statusEl.innerHTML = '&#10007; Fout: ' + err.message;
+      statusEl.className = 'status fout';
+    }
+  };
+  reader.readAsArrayBuffer(bestand);
+}
+
+function laadHTML(input) {
+  var bestand = input.files[0];
+  if (!bestand) return;
+  var statusEl = document.getElementById('status-html');
+  statusEl.className = 'status';
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    htmlInhoud = e.target.result;
+    if (htmlInhoud.indexOf('var LEDENDATA') === -1) {
+      statusEl.innerHTML = '&#10007; Dit lijkt niet de Synergos app te zijn';
+      statusEl.className = 'status fout';
+      htmlInhoud = null;
+      return;
+    }
+    statusEl.innerHTML = '&#10003; App geladen: ' + bestand.name;
+    statusEl.className = 'status ok';
+    document.getElementById('nr2').textContent = '\u2713';
+    document.getElementById('nr2').className = 'stap-nr done';
+    checkKlaar();
+  };
+  reader.readAsText(bestand, 'UTF-8');
+}
+
+function checkKlaar() {
+  var btn = document.getElementById('download-btn');
+  var hint = document.getElementById('download-hint');
+  if (ledenJSON && htmlInhoud) {
+    btn.className = 'download-btn actief';
+    hint.textContent = 'Klaar! Klik op de knop om de bijgewerkte app te downloaden.';
+  }
+}
+
+function download() {
+  if (!ledenJSON || !htmlInhoud) return;
+
+  var nieuw = htmlInhoud.replace(
+    /var LEDENDATA\s*=\s*\[[\s\S]*?\];/,
+    'var LEDENDATA = ' + ledenJSON + ';'
+  );
+
+  if (nieuw === htmlInhoud) {
+    alert('Kon LEDENDATA niet vervangen. Controleer de app.');
+    return;
+  }
+
+  var blob = new Blob([nieuw], {type:'text/html;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'synergos_presentielijst.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  var btn = document.getElementById('download-btn');
+  btn.innerHTML = '&#10003; Gedownload! Vervang je oude app met dit bestand';
+  btn.style.background = 'linear-gradient(135deg,#1a6e3c,#27ae60)';
+  document.getElementById('nr3').textContent = '\u2713';
+  document.getElementById('nr3').className = 'stap-nr done';
+  setTimeout(function() {
+    btn.innerHTML = '&#11015; Download bijgewerkte app';
+    btn.style.background = '';
+  }, 4000);
+}
+
+// Drag & drop
+['zone-excel','zone-html'].forEach(function(id) {
+  var zone = document.getElementById(id);
+  zone.addEventListener('dragover', function(e){e.preventDefault();zone.classList.add('drag');});
+  zone.addEventListener('dragleave', function(){zone.classList.remove('drag');});
+  zone.addEventListener('drop', function(e){
+    e.preventDefault();zone.classList.remove('drag');
+    var inputId = id==='zone-excel'?'bestand-excel':'bestand-html';
+    var input = document.getElementById(inputId);
+    input.files = e.dataTransfer.files;
+    id==='zone-excel'?laadExcel(input):laadHTML(input);
+  });
+});
+</script>
+</body>
+</html>
